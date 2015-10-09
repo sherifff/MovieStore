@@ -35,6 +35,11 @@ public class MainActivity extends AppCompatActivity implements ActionBar.TabList
     int tabPosition;
     String ARG_SECTION_NUMBER="sectionNumber";
     private static final String DETAILFRAGMENT_TAG = "DFTAG" ;
+    private static final String DETAILFRAGMENT = "detail" ;
+    private static final String MOVIESFRAGMENT = "movie_fragment" ;
+    private Fragment movieFragment;
+    private Fragment detailFragment;
+
     boolean mTwoPane;
     /**
      * The {@link ViewPager} that will host the section contents.
@@ -124,7 +129,8 @@ public class MainActivity extends AppCompatActivity implements ActionBar.TabList
 //            else{
 //              //  getSupportActionBar().getTabAt(0).setText(getString(R.string.pref_sort_label_highest_rated).toUpperCase(Locale.getDefault()));
 //            }
-             mSectionsPagerAdapter=new SectionsPagerAdapter(getSupportFragmentManager());
+            movieFragment=null;
+            mSectionsPagerAdapter=new SectionsPagerAdapter(getSupportFragmentManager());
             mViewPager.setAdapter(mSectionsPagerAdapter);
             sortedBy=sort;
         }
@@ -148,6 +154,7 @@ public class MainActivity extends AppCompatActivity implements ActionBar.TabList
             return true;
         }
         if (id == R.id.action_refresh) {
+            movieFragment=null;
             mSectionsPagerAdapter=new SectionsPagerAdapter(getSupportFragmentManager());
             mViewPager.setAdapter(mSectionsPagerAdapter);
             mSectionsPagerAdapter.notifyDataSetChanged();
@@ -178,19 +185,20 @@ public class MainActivity extends AppCompatActivity implements ActionBar.TabList
     public void onItemSelected(String backdrop_path, int id,String original_title,String poster_path
             ,String overview,String release_date, double vote_average ){
         if (mTwoPane) {
-            DetailFragment new_fragment=new DetailFragment();
+            detailFragment=new DetailFragment();
+            DetailFragment frag=new DetailFragment();
             Bundle arguments = new Bundle();
-            arguments.putInt(new_fragment.ID, id);
-            arguments.putString(new_fragment.BACK_GROUND, backdrop_path);
-            arguments.putString(new_fragment.TITLE,original_title);
-            arguments.putString(new_fragment.IMAGE,poster_path);
-            arguments.putString(new_fragment.OVERVIEW, overview);
-            arguments.putString(new_fragment.DATE, release_date);
-            arguments.putDouble(new_fragment.RATE, vote_average);
+            arguments.putInt(frag.ID, id);
+            arguments.putString(frag.BACK_GROUND, backdrop_path);
+            arguments.putString(frag.TITLE,original_title);
+            arguments.putString(frag.IMAGE,poster_path);
+            arguments.putString(frag.OVERVIEW, overview);
+            arguments.putString(frag.DATE, release_date);
+            arguments.putDouble(frag.RATE, vote_average);
             arguments.putBoolean("twoPane", mTwoPane);
-            new_fragment.setArguments(arguments);
+            detailFragment.setArguments(arguments);
             getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.movie_detail, new_fragment, DETAILFRAGMENT_TAG)
+                    .replace(R.id.movie_detail, detailFragment, DETAILFRAGMENT_TAG)
                     .commit();
         } else {
             Intent intent = new Intent(this, DetailActivity.class);
@@ -210,6 +218,7 @@ public class MainActivity extends AppCompatActivity implements ActionBar.TabList
     public void onItemSelectedFavourite(String backdrop_path, int id, String original_title, String poster_path, String overview, String release_date, double vote_average) {
         if (mTwoPane) {
             DetailFragment new_fragment=new DetailFragment();
+            detailFragment=new DetailFragment();
             Bundle arguments = new Bundle();
             arguments.putInt(new_fragment.ID, id);
             arguments.putString(new_fragment.BACK_GROUND, backdrop_path);
@@ -219,9 +228,9 @@ public class MainActivity extends AppCompatActivity implements ActionBar.TabList
             arguments.putString(new_fragment.DATE, release_date);
             arguments.putDouble(new_fragment.RATE, vote_average);
             arguments.putBoolean("twoPane", mTwoPane);
-            new_fragment.setArguments(arguments);
+            detailFragment.setArguments(arguments);
             getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.movie_detail, new_fragment, DETAILFRAGMENT_TAG)
+                    .replace(R.id.movie_detail, detailFragment, DETAILFRAGMENT_TAG)
                     .commit();
         } else {
             Intent intent = new Intent(this, DetailActivity.class);
@@ -248,20 +257,21 @@ public class MainActivity extends AppCompatActivity implements ActionBar.TabList
         }
         @Override
         public Fragment getItem(int position) {
-             Fragment fragment = null;
             if(position==0){
-                fragment=new GridMoviesFragment();
-                Bundle args = new Bundle();
-                args.putBoolean("twoPane", mTwoPane);
-                fragment.setArguments(args);
-
+                if(movieFragment==null){
+                    movieFragment=new GridMoviesFragment();
+                    Bundle args = new Bundle();
+                    args.putBoolean("twoPane", mTwoPane);
+                    movieFragment.setArguments(args);
+                }
+                return movieFragment;
             }else{
-                fragment=new FavouriteFragment();
+                FavouriteFragment favourite=new FavouriteFragment();
                 Bundle args = new Bundle();
                 args.putBoolean("twoPane", mTwoPane);
-                fragment.setArguments(args);
+                favourite.setArguments(args);
+                return favourite;
             }
-            return fragment;
         }
 
         @Override
@@ -289,6 +299,29 @@ public class MainActivity extends AppCompatActivity implements ActionBar.TabList
         }
 
     }
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if(movieFragment!=null) {
+            getSupportFragmentManager().putFragment(outState, MOVIESFRAGMENT, movieFragment);
+        }
+        if(detailFragment!=null){
+            getSupportFragmentManager().putFragment(outState, DETAILFRAGMENT, detailFragment);
+        }
+       // getSupportFragmentManager().putFragment(outState, FAVOURITEFRAGMENT, favouriteFragment);
+    }
+
+    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+
+        if(savedInstanceState != null) {
+            movieFragment = getSupportFragmentManager().getFragment(savedInstanceState, MOVIESFRAGMENT);
+            detailFragment = getSupportFragmentManager().getFragment(savedInstanceState, DETAILFRAGMENT);
+            //favouriteFragment = getSupportFragmentManager().getFragment(savedInstanceState, FAVOURITEFRAGMENT);
+        }
+    }
+
 
 
 }

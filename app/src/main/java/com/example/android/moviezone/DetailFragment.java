@@ -1,5 +1,6 @@
 package com.example.android.moviezone;
 
+import android.app.Dialog;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
@@ -20,6 +21,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -66,12 +68,32 @@ public class DetailFragment extends Fragment {
     static final String IMAGE="image";
     private boolean pane;
 //    static final String FAVOURITE="favourite";
-    private boolean isfavourite;
+    static boolean isfavourite;
     private static final String[] FAVOURITE_TRAILERS_COLUMNS={MovieContract.TrailersEntry.COLUMN_TRAILER_ID,MovieContract.TrailersEntry.COLUMN_KEY,MovieContract.TrailersEntry.COLUMN_NAME,MovieContract.TrailersEntry.COLUMN_SITE};
     private static final int COLUMN_TRAILER_ID = 0;
     private static final int  COLUMN_KEY= 1;
     private static final int COLUMN_NAME = 2;
     private static final int COLUMN_SITE = 3;
+    /////////////////////////////////////////////////////////////
+    LoadMoreListView reviews;
+    int totalPages;
+    int page;
+    ArrayList<Review> allReviews;
+    ReviewsAdapter adapter;
+    private static final String[] FAVOURITE_REVIEWS_COLUMNS={MovieContract.ReviewEntry.COLUMN_REVIEW_ID,MovieContract.ReviewEntry.COLUMN_AUTHOR,MovieContract.ReviewEntry.COLUMN_CONTENT,MovieContract.ReviewEntry.COLUMN_URL};
+    private static final int COLUMN_REVIEWID = 0;
+    private static final int  COLUMN_AUTHOR= 1;
+    private static final int COLUMN_CONTENT = 2;
+    private static final int COLUMN_URL = 3;
+    //////////////////////////////////////////////////////////////////
+
+    private static final String KEY_REVIEWS_LIST = "reviews";
+    private static final String KEY_TRAILERS_LIST = "trailers";
+    private static final String KEY_PAGES = "pages";
+    private static final String VALID_PAGES = "valid";
+
+    //////////////////////////////////////////////////////////////////
+
     public DetailFragment(){
         setHasOptionsMenu(true);
     }
@@ -165,10 +187,33 @@ public class DetailFragment extends Fragment {
             favourite.setBackgroundResource(R.drawable.stars2);
         }
         cursor.close();
-        if(haveNetworkConnection()) {
-            new FetchTrailersTask().execute();
-        }else if(isfavourite){
-            loadFromDatabase();
+        ////////////////////////////////////////////////////////////////////////////////
+        allReviews= new ArrayList<Review>();
+        totalPages=0;
+        page=1;
+        /////////////////////////////////////////////////////////////////////////////////
+
+        if(savedInstanceState != null) {
+            ArrayList<Trailer> data = savedInstanceState.getParcelableArrayList(KEY_TRAILERS_LIST);
+            allReviews = savedInstanceState.getParcelableArrayList(KEY_REVIEWS_LIST);
+            page=savedInstanceState.getInt(KEY_PAGES);
+            totalPages=savedInstanceState.getInt(VALID_PAGES);
+            if(data!=null){
+                adapterTrailers.setTrailers(data);
+            }
+            if(data==null||data.size()==0){
+                if(haveNetworkConnection()) {
+                    new FetchTrailersTask().execute();
+                }else if(isfavourite){
+                    loadFromDatabase();
+                }
+            }
+        } else {
+            if(haveNetworkConnection()) {
+                new FetchTrailersTask().execute();
+            }else if(isfavourite){
+                loadFromDatabase();
+            }
         }
         trailersView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -181,32 +226,12 @@ public class DetailFragment extends Fragment {
                 }
             }
         });
-//        trailersView.setOnTouchListener(new ListView.OnTouchListener() {
-//            @Override
-//            public boolean onTouch(View v, MotionEvent event) {
-//                int action = event.getAction();
-//                switch (action) {
-//                    case MotionEvent.ACTION_DOWN:
-//                        // Disallow ScrollView to intercept touch events.
-//                        v.getParent().requestDisallowInterceptTouchEvent(true);
-//                        break;
-//
-//                    case MotionEvent.ACTION_UP:
-//                        // Allow ScrollView to intercept touch events.
-//                        v.getParent().requestDisallowInterceptTouchEvent(false);
-//                        break;
-//                }
-//
-//                // Handle ListView touch events.
-//                v.onTouchEvent(event);
-//                return true;
-//            }
-//        });
         favourite.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Cursor cursor = getActivity().getContentResolver().query(MovieContract.MovieEntry.buildMovie(movie.getId()),FavouriteFragment.Favourite_COLUMNS,null,null,null);
                 if (cursor!=null&&cursor.moveToFirst()) {
+                    isfavourite=false;
                     Toast.makeText(getActivity().getApplicationContext(), "Removed from Favourites :( ",
                             Toast.LENGTH_LONG).show();
                     getActivity().getContentResolver().delete(MovieContract.MovieEntry.CONTENT_URI,
@@ -226,6 +251,7 @@ public class DetailFragment extends Fragment {
 
                 } else {
                     ContentValues values=new ContentValues();
+                    isfavourite=true;
                     Toast.makeText(getActivity().getApplicationContext(), "Added To Favourites ^_^ ",
                             Toast.LENGTH_LONG).show();
                     values.put(MovieContract.MovieEntry.COLUMN_MOVIE_ID,movie.getId());
@@ -245,16 +271,59 @@ public class DetailFragment extends Fragment {
         review.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent =new Intent(getActivity(),ReviewsPopUp.class);
-                Cursor cursor = getActivity().getContentResolver().query(MovieContract.MovieEntry.buildMovie(movie.getId()),FavouriteFragment.Favourite_COLUMNS,null,null,null);
-                if (cursor!=null&&cursor.moveToFirst()) {
-                    intent.putExtra("favourite",true);
-                }else{
-                    intent.putExtra("favourite",false);
+//                Intent intent =new Intent(getActivity(),ReviewsPopUp.class);
+//                Cursor cursor = getActivity().getContentResolver().query(MovieContract.MovieEntry.buildMovie(movie.getId()),FavouriteFragment.Favourite_COLUMNS,null,null,null);
+//                if (cursor!=null&&cursor.moveToFirst()) {
+//                    intent.putExtra("favourite",true);
+//                }else{
+//                    intent.putExtra("favourite",false);
+//                }
+//                cursor.close();
+//                intent.putExtra("movie_id",movie.getId());
+//                startActivity(intent);
+
+                Dialog dialog = new Dialog(getActivity());
+                dialog.setContentView(R.layout.reviews);
+                allReviews=new ArrayList<Review>();
+                adapter=new ReviewsAdapter(getActivity(),allReviews);
+                reviews= (LoadMoreListView) dialog.findViewById(R.id.listview_reviews);
+                reviews.setFooterDividersEnabled(true);
+                reviews.setHeaderDividersEnabled(true);
+                reviews.setAdapter(adapter);
+                page=1;
+                if(haveNetworkConnection()){
+                        new FetchReviewsTask().execute(page);
+                }else if(isfavourite){
+                        loadRreviewsFromDatabase();
                 }
-                cursor.close();
-                intent.putExtra("movie_id",movie.getId());
-                startActivity(intent);
+                dialog.setCancelable(true);
+                dialog.setTitle(getString(R.string.reviews));
+                dialog.show();
+                doKeepDialog(dialog);
+                reviews.setOnLoadMoreListener(new LoadMoreListView.OnLoadMoreListener() {
+                    public void onLoadMore() {
+                        if (haveNetworkConnection()) {
+                            if (page <= totalPages) {
+                                new FetchReviewsTask().execute(page);
+                            } else {
+                                reviews.onLoadMoreComplete();
+                            }
+                        }
+                    }
+                });
+//                reviews.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+//                    @Override
+//                    public void onItemClick(AdapterView adapterView, View view, int position, long l) {
+//                        if (adapter != null){
+//                            if (adapter.getElement(position).getUrl() != null && adapter.getElement(position).getUrl().length() != 0) {
+//                                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(adapter.getElement(position).getUrl()));
+//                                if (intent.resolveActivity(getActivity().getPackageManager()) != null) {
+//                                    startActivity(intent);
+//                                }
+//                            }
+//                        }
+//                    }
+//                });
             }
         });
         return view;
@@ -406,6 +475,154 @@ public class DetailFragment extends Fragment {
             }
         }
     }
+    public void loadRreviewsFromDatabase(){
+        ArrayList<Review>elems=new ArrayList<>();
+        Cursor cursor=getActivity().getContentResolver().query(MovieContract.ReviewEntry.buildReviewForMovie(movie.getId()), FAVOURITE_REVIEWS_COLUMNS, null, null, null);
+        for (cursor.moveToFirst(); !cursor.isAfterLast(); cursor.moveToNext()) {
+            Review elem=new Review(cursor.getString(COLUMN_AUTHOR),cursor.getString(COLUMN_CONTENT),cursor.getString(COLUMN_URL),cursor.getString(COLUMN_REVIEWID));
+            elems.add(elem);
+        }
+        cursor.close();
+        adapter.setReviews(elems);
+    }
+    public class FetchReviewsTask extends AsyncTask<Integer, Void, ArrayList<Review>> {
+        private final String LOG_TAG = FetchReviewsTask.class.getSimpleName();
+
+        private ArrayList<Review>getReviewsDataFromJson(String reviewJsonStr)
+                throws JSONException {
+            final String ID="id";
+            final String AUTHOR="author";
+            final String CONTENT="content";
+            final String URL="url";
+            final String RESULT="results";
+            final String TOTALPAGES="total_pages";
+            JSONObject reviewsJson = new JSONObject(reviewJsonStr);
+            totalPages= reviewsJson.getInt(TOTALPAGES);
+            JSONArray reviewsArray = reviewsJson.getJSONArray(RESULT);
+            ArrayList<Review> list_reviews=new ArrayList<>();
+            for (int i=0;i<reviewsArray.length();i++){
+                JSONObject obj= reviewsArray.getJSONObject(i);
+                Review review=new Review(obj.getString(AUTHOR),obj.getString(CONTENT),obj.getString(URL),obj.getString(ID));
+                list_reviews.add(review);
+            }
+            return list_reviews;
+        }
+        @Override
+        protected ArrayList<Review> doInBackground(Integer... params) {
+
+            if (params.length == 0) {
+                return null;
+            }
+            // These two need to be declared outside the try/catch
+            // so that they can be closed in the finally block.
+            HttpURLConnection urlConnection = null;
+            BufferedReader reader = null;
+
+            // Will contain the raw JSON response as a string.
+            String reviewJsonStr = null;
+
+
+
+            try {
+
+                final String REVIEW_BASE_URL =
+                        "http://api.themoviedb.org/3/movie/"+movie.getId()+"/reviews?";
+                final String PAGE_PARAM = "page";
+                final String KEY_PARAM = "api_key";
+                Uri builtUri = Uri.parse(REVIEW_BASE_URL).buildUpon()
+                        .appendQueryParameter(PAGE_PARAM, params[0] + "")
+                        .appendQueryParameter(KEY_PARAM,getString(R.string.app_key))
+                        .build();
+
+                URL url = new URL(builtUri.toString());
+
+                // Create the request to OpenWeatherMap, and open the connection
+                urlConnection = (HttpURLConnection) url.openConnection();
+                urlConnection.setRequestMethod("GET");
+                urlConnection.connect();
+
+                // Read the input stream into a String
+                InputStream inputStream = urlConnection.getInputStream();
+                StringBuffer buffer = new StringBuffer();
+                if (inputStream == null) {
+                    // Nothing to do.
+                    return null;
+                }
+                reader = new BufferedReader(new InputStreamReader(inputStream));
+
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    // Since it's JSON, adding a newline isn't necessary (it won't affect parsing)
+                    // But it does make debugging a *lot* easier if you print out the completed
+                    // buffer for debugging.
+                    buffer.append(line + "\n");
+                }
+
+                if (buffer.length() == 0) {
+                    // Stream was empty.  No point in parsing.
+                    return null;
+                }
+                reviewJsonStr = buffer.toString();
+            } catch (IOException e) {
+                Log.e(LOG_TAG, "Error ", e);
+                // If the code didn't successfully get the Movie data, there's no point in attemping
+                // to parse it.
+                return null;
+            } finally {
+                if (urlConnection != null) {
+                    urlConnection.disconnect();
+                }
+                if (reader != null) {
+                    try {
+                        reader.close();
+                    } catch (final IOException e) {
+                        Log.e(LOG_TAG, "Error closing stream", e);
+                    }
+                }
+            }
+            try {
+                return getReviewsDataFromJson(reviewJsonStr);
+            } catch (JSONException e) {
+                Log.e(LOG_TAG, e.getMessage(), e);
+                e.printStackTrace();
+            }
+
+            // This will only happen if there was an error getting or parsing the Movies.
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(ArrayList<Review> reviews_array) {
+            adapter.setReviews(reviews_array);
+            reviews.onLoadMoreComplete();
+            if(isfavourite) {
+                for (int i = 0; i < reviews_array.size(); i++) {
+                    ContentValues values = new ContentValues();
+                    values.put(MovieContract.ReviewEntry.COLUMN_MOVIE_ID, movie.getId());
+                    values.put(MovieContract.ReviewEntry.COLUMN_REVIEW_ID, reviews_array.get(i).getId());
+                    values.put(MovieContract.ReviewEntry.COLUMN_AUTHOR, reviews_array.get(i).getAuthor());
+                    values.put(MovieContract.ReviewEntry.COLUMN_CONTENT, reviews_array.get(i).getContent());
+                    values.put(MovieContract.ReviewEntry.COLUMN_URL, reviews_array.get(i).getUrl());
+                    Cursor cursor = getActivity().getContentResolver().query(MovieContract.ReviewEntry.buildMovieIdReviewId(movie.getId(), reviews_array.get(i).getId()), FAVOURITE_REVIEWS_COLUMNS, null, null, null);
+                    if (cursor!=null&&cursor.moveToFirst()) {
+                        getActivity().getContentResolver().update(MovieContract.ReviewEntry.buildMovieIdReviewId(movie.getId(), reviews_array.get(i).getId()), values, null, null);
+                    }else {
+                        getActivity().getContentResolver().insert(MovieContract.ReviewEntry.buildMovieIdReviewId(movie.getId(), reviews_array.get(i).getId()), values);
+                    }
+                    cursor.close();
+                }
+            }
+            page++;
+        }
+        @Override
+        protected void onCancelled() {
+            // Notify the loading more operation has finished
+            reviews.onLoadMoreComplete();
+            if(adapter.getCount()==0&&isfavourite){
+                loadRreviewsFromDatabase();
+            }
+        }
+    }
 
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
@@ -452,12 +669,34 @@ public class DetailFragment extends Fragment {
     public static void setFavourite(int id){
         if(movie!=null&&movie.getId()==id) {
             favourite.setBackgroundResource(R.drawable.starg);
+            isfavourite=true;
         }
     }
     public static void setNotFavourite(int id){
         if(movie!=null&&movie.getId()==id) {
             favourite.setBackgroundResource(R.drawable.stars2);
+            isfavourite=false;
         }
     }
 
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        if(adapter !=null){
+            outState.putParcelableArrayList(KEY_REVIEWS_LIST, adapter.getReviews());
+        }
+        if(adapterTrailers!=null){
+            outState.putParcelableArrayList(KEY_TRAILERS_LIST,adapterTrailers.getTrailers());
+        }
+        outState.putInt(KEY_PAGES, page);
+        outState.putInt(VALID_PAGES, totalPages);
+        super.onSaveInstanceState(outState);
+
+    }
+    private static void doKeepDialog(Dialog dialog){
+        WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
+        lp.copyFrom(dialog.getWindow().getAttributes());
+        lp.width = WindowManager.LayoutParams.WRAP_CONTENT;
+        lp.height = WindowManager.LayoutParams.WRAP_CONTENT;
+        dialog.getWindow().setAttributes(lp);
+    }
 }

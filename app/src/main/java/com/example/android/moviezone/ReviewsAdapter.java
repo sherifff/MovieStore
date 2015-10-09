@@ -46,6 +46,10 @@ public class ReviewsAdapter extends BaseAdapter{
         return reviews.size();
     }
 
+    public ArrayList<Review> getReviews() {
+        return reviews;
+    }
+
     @Override
     public Object getItem(int position) {
         return null;

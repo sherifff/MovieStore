@@ -43,6 +43,9 @@ public class TrailerAdapter extends BaseAdapter{
     public int getCount() {
         return trailers.size();
     }
+    public ArrayList<Trailer> getTrailers() {
+        return trailers;
+    }
 
     @Override
     public Object getItem(int position) {

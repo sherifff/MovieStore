@@ -2,6 +2,7 @@ package com.example.android.moviezone;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.app.Fragment;
 import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -9,6 +10,8 @@ import android.view.MenuItem;
 
 public class DetailActivity extends ActionBarActivity{
 
+    private Fragment detail;
+    private static final String DETAIL = "detail" ;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -22,20 +25,21 @@ public class DetailActivity extends ActionBarActivity{
          String release_date=intent.getStringExtra("release_date");
          double vote_average=intent.getDoubleExtra("vote_average", 0.0);
 
-        DetailFragment fragment = new DetailFragment();
-        Bundle arguments = new Bundle();
-        arguments.putInt(fragment.ID, id);
-        arguments.putString(fragment.BACK_GROUND, backdrop_path);
-        arguments.putString(fragment.TITLE,original_title);
-        arguments.putString(fragment.IMAGE,poster_path);
-        arguments.putString(fragment.OVERVIEW, overview);
-        arguments.putString(fragment.DATE, release_date);
-        arguments.putDouble(fragment.RATE, vote_average);
-        arguments.putBoolean("twoPane", intent.getBooleanExtra("twoPane",false));
-        fragment.setArguments(arguments);
         if (savedInstanceState == null) {
+            detail=new DetailFragment();
+            DetailFragment fragment = new DetailFragment();
+            Bundle arguments = new Bundle();
+            arguments.putInt(fragment.ID, id);
+            arguments.putString(fragment.BACK_GROUND, backdrop_path);
+            arguments.putString(fragment.TITLE,original_title);
+            arguments.putString(fragment.IMAGE,poster_path);
+            arguments.putString(fragment.OVERVIEW, overview);
+            arguments.putString(fragment.DATE, release_date);
+            arguments.putDouble(fragment.RATE, vote_average);
+            arguments.putBoolean("twoPane", intent.getBooleanExtra("twoPane",false));
+            detail.setArguments(arguments);
             getSupportFragmentManager().beginTransaction()
-                    .add(R.id.movie_detail_container ,fragment)
+                    .add(R.id.movie_detail_container ,detail)
                     .commit();
         }
     }
@@ -61,5 +65,20 @@ public class DetailActivity extends ActionBarActivity{
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        getSupportFragmentManager().putFragment(outState, DETAIL, detail);
+    }
+
+    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+
+        if(savedInstanceState != null) {
+            detail = getSupportFragmentManager().getFragment(savedInstanceState, DETAIL);
+        }
     }
 }

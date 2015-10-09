@@ -30,12 +30,17 @@ import java.util.ArrayList;
 public class GridMoviesFragment extends Fragment  {
 
     ArrayList<Movie> allMovies;
-    ArrayList<Movie> Movies;
+    ArrayList<Movie> getMovies;
     int pages;
     int valid_pages;
     GridView grid;
     ProgressBar progress;
-   // private int mPosition = GridView.INVALID_POSITION;
+    private static final String KEY_MOVIE_LIST = "movies";
+    private static final String KEY_PAGES = "pages";
+    private static final String VALID_PAGES = "valid";
+    private static final String LOAD_MORE = "load_more";
+    private static final String STOP_LOADING = "stop_loading";
+    // private int mPosition = GridView.INVALID_POSITION;
    // private static final String SELECTED_KEY = "selected_position";
     static GridAdapter adapter;
     // BOOLEAN TO CHECK IF NEW FEEDS ARE LOADING
@@ -49,6 +54,7 @@ public class GridMoviesFragment extends Fragment  {
         pages=1;
         new FetchMovieTask().execute(pages);
     }
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -57,7 +63,7 @@ public class GridMoviesFragment extends Fragment  {
       pages=1;
         valid_pages=0;
         allMovies=new ArrayList<>();
-        Movies=new ArrayList<>();
+        getMovies=new ArrayList<>();
         grid= (GridView) view.findViewById(R.id.grid);
         progress= (ProgressBar) view.findViewById(R.id.loader_view);
         adapter=new GridAdapter(getActivity(), allMovies,getArguments().getBoolean("twoPane"));
@@ -67,8 +73,19 @@ public class GridMoviesFragment extends Fragment  {
 //            mPosition = savedInstanceState.getInt(SELECTED_KEY);
 //            grid.smoothScrollToPosition(mPosition);
 //        }
-        new FetchMovieTask().execute(pages);
-        pages++;
+
+        if(savedInstanceState != null) {
+            getMovies = savedInstanceState.getParcelableArrayList(KEY_MOVIE_LIST);
+            pages=savedInstanceState.getInt(KEY_PAGES);
+            valid_pages=savedInstanceState.getInt(VALID_PAGES);
+            loadingMore=savedInstanceState.getBoolean(LOAD_MORE);
+            stopLoadingData=savedInstanceState.getBoolean(STOP_LOADING);
+            adapter.setMovies(getMovies);
+        } else {
+            new FetchMovieTask().execute(pages);
+            pages++;
+        }
+
         grid.setOnScrollListener(new AbsListView.OnScrollListener() {
 
             @Override
@@ -108,17 +125,10 @@ public class GridMoviesFragment extends Fragment  {
     public static void updateAdapter(){
         adapter.notifyDataSetChanged();
     }
-    @Override
-    public void onSaveInstanceState(Bundle outState) {
-
-//        if (mPosition != GridView.INVALID_POSITION) {
-//            outState.putInt(SELECTED_KEY, mPosition);
-//        }
-        super.onSaveInstanceState(outState);
-    }
 
     public class FetchMovieTask extends AsyncTask<Integer, Void, ArrayList<Movie>> {
         private final String LOG_TAG = FetchMovieTask.class.getSimpleName();
+        private String sort="";
 
         private ArrayList<Movie>getMovieDataFromJson(String moviesJsonStr)
                 throws JSONException {
@@ -144,6 +154,14 @@ public class GridMoviesFragment extends Fragment  {
             }
             return list_movies;
         }
+
+        @Override
+        protected void onPreExecute()
+        {
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
+            sort=prefs.getString(getString(R.string.pref_sort_key),getString(R.string.pref_sort_most_popular));
+        }
+
         @Override
         protected ArrayList<Movie> doInBackground(Integer... params) {
             // CHANGE THE LOADING MORE STATUS TO PREVENT DUPLICATE CALLS FOR
@@ -170,9 +188,8 @@ public class GridMoviesFragment extends Fragment  {
                 final String SORT_PARAM = "sort_by";
                 final String PAGE_PARAM = "page";
                 final String KEY_PARAM = "api_key";
-                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
                 Uri builtUri = Uri.parse(MOVIE_BASE_URL).buildUpon()
-                        .appendQueryParameter(SORT_PARAM,prefs.getString(getString(R.string.pref_sort_key),getString(R.string.pref_sort_most_popular)))
+                        .appendQueryParameter(SORT_PARAM,sort)
                         .appendQueryParameter(PAGE_PARAM, params[0] + "")
                         .appendQueryParameter(KEY_PARAM, getString(R.string.app_key))
                         .build();
@@ -234,6 +251,8 @@ public class GridMoviesFragment extends Fragment  {
             return null;
         }
 
+
+
         @Override
         protected void onPostExecute(ArrayList<Movie> movies) {
             // CHANGE THE LOADING MORE STATUS
@@ -259,5 +278,15 @@ public class GridMoviesFragment extends Fragment  {
 //        if (mPosition != GridView.INVALID_POSITION) {
 //            grid.smoothScrollToPosition(mPosition);
 //        }
+    }
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        outState.putParcelableArrayList(KEY_MOVIE_LIST, adapter.getMovies());
+        outState.putInt(KEY_PAGES, pages);
+        outState.putInt(VALID_PAGES, valid_pages);
+        outState.putBoolean(LOAD_MORE,loadingMore);
+        outState.putBoolean(STOP_LOADING,stopLoadingData);
+        super.onSaveInstanceState(outState);
+
     }
 }
