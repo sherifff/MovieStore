@@ -1,0 +1,36 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:baselineAligned="false"
+    android:divider="?android:attr/dividerHorizontal"
+    android:orientation="horizontal"
+    tools:context="com.example.android.moviezone.MainActivity">
+
+    <android.support.v4.view.ViewPager android:id="@+id/pager"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="2"
+        tools:context=".MainActivity"
+        android:background="@color/gray_background">
+
+        <android.support.v4.view.PagerTabStrip
+            android:id="@+id/strip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:paddingBottom="10dp"
+            android:paddingTop="10dp"
+            android:textColor="#000000" />
+
+    </android.support.v4.view.ViewPager>
+
+
+    <FrameLayout
+        android:id="@+id/movie_detail"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="3"
+        />
+
+</LinearLayout>
